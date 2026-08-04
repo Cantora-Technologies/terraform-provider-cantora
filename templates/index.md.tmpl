@@ -1,0 +1,25 @@
+---
+page_title: "Cantora Provider"
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# Cantora Provider
+
+{{ .Description | trimspace }}
+
+The provider manages stable desired Agent Configuration while Cantora retains immutable Agent Versions, append-only Agent Releases, and Configuration Revision evidence.
+
+Use a Cantora ServicePrincipal with only the grants required for the target Project. Prefer `CANTORA_API_KEY` over an `api_key` argument so the credential does not appear in configuration. Authentication values never enter resource state.
+
+## Example Usage
+
+{{ tffile "examples/provider/provider.tf" }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## State security
+
+Agent instructions are reviewable customer data and enter saved plans and state. Protect those artifacts with encryption, access control, locking, backup, and retention. Never put credentials, tokens, Connection secret material, or provider refresh material in Agent Configuration.
+
+Provider-level source fields are operation context. They are bound into a reviewed plan only when resource configuration changes; changing provenance alone does not manufacture drift.

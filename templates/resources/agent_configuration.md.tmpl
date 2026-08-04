@@ -1,0 +1,34 @@
+---
+page_title: "cantora_agent_configuration Resource - cantora"
+subcategory: "Agent Configuration"
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# cantora_agent_configuration
+
+{{ .Description | trimspace }}
+
+Plan calls Cantora's side-effect-free preview operation and carries the canonical digest, resource preconditions, proposed actions, stable apply request identity, and source provenance in computed plan metadata. Create and update apply that exact reviewed proposal. A timeout or lost response is retried once with the same identity, and the Management API converges concurrent retries on one Configuration Revision.
+
+Read follows the Agent Definition's current Test Agent, Version, and Release, so an authorized out-of-band change appears as ordinary Terraform drift.
+
+## Example Usage
+
+{{ tffile "examples/resources/cantora_agent_configuration/resource.tf" }}
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+Import an existing Agent Configuration with its complete `organization_id/project_id/agent_definition_id` identity:
+
+{{ codefile "shell" "examples/resources/cantora_agent_configuration/import.sh" }}
+
+Create never silently adopts an existing Project key. Use explicit import for handoff or state recovery.
+
+## Removal and destroy
+
+Removing this resource relinquishes only Terraform's local state binding. It does not delete or retire the Agent Definition, change the running Agent, roll back a Release, or remove immutable Versions, Releases, Configuration Revisions, or audit evidence.
+
+Terraform backend locking coordinates writers that share one state. Separate states have no cross-state lock; binding the same Agent Definition into two roots is an operational error, and later authorized writers appear as drift.
