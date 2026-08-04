@@ -1,0 +1,2 @@
+terraform import cantora_agent_configuration.aria \
+  org_0123456789abcdef0123456789abcdef/proj_0123456789abcdef0123456789abcdef/agentdef_0123456789abcdef0123456789abcdef
