@@ -183,6 +183,21 @@ func TestNewRejectsCredentialsInEndpoint(t *testing.T) {
 	}
 }
 
+func TestNewRejectsPlaintextRemoteEndpoint(t *testing.T) {
+	_, err := New("http://api.cantora.ai", "api-key", "test", nil)
+	if err == nil || !strings.Contains(err.Error(), "must use https") {
+		t.Fatalf("expected plaintext remote endpoint refusal, got %v", err)
+	}
+}
+
+func TestNewAllowsPlaintextLoopbackEndpoint(t *testing.T) {
+	for _, endpoint := range []string{"http://localhost:8080", "http://127.0.0.1:8080", "http://[::1]:8080"} {
+		if _, err := New(endpoint, "api-key", "test", nil); err != nil {
+			t.Errorf("expected loopback endpoint %q to be accepted: %v", endpoint, err)
+		}
+	}
+}
+
 func TestRequestUsesTheConfiguredTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
 		<-request.Context().Done()

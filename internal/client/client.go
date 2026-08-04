@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -192,8 +193,8 @@ func New(baseURL string, apiKey string, version string, httpClient *http.Client)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return nil, fmt.Errorf("endpoint must be an absolute HTTP URL")
 	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return nil, fmt.Errorf("endpoint must use http or https")
+	if parsed.Scheme != "https" && (parsed.Scheme != "http" || !isLoopbackHost(parsed.Hostname())) {
+		return nil, fmt.Errorf("endpoint must use https unless it is a loopback test endpoint")
 	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, fmt.Errorf("endpoint must not contain credentials, a query, or a fragment")
@@ -214,6 +215,14 @@ func New(baseURL string, apiKey string, version string, httpClient *http.Client)
 		httpClient: &configuredHTTPClient,
 		userAgent:  "terraform-provider-cantora/" + version,
 	}, nil
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func (c *Client) PreviewAgentConfiguration(

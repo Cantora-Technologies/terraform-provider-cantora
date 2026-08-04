@@ -2,7 +2,7 @@
 
 The Cantora provider manages stable [Agent Configuration](https://cantora.ai/your-first-agent) through Cantora's Management API. Terraform owns the desired configuration and remote Agent Definition identity; Cantora retains immutable Agent Versions, append-only Agent Releases, and Configuration Revision evidence beneath it.
 
-The initial provider exposes one resource: `cantora_agent_configuration`. It supports side-effect-free planning, saved-plan preconditions, idempotent apply recovery, ordinary drift detection, explicit import, and non-destructive removal from Terraform state.
+The initial provider exposes one resource: `cantora_agent_configuration`. It supports side-effect-free preview, saved-plan preconditions when inputs are known during planning, dependency-aware apply, idempotent recovery, ordinary drift detection, explicit import, and non-destructive removal from Terraform state.
 
 ## Use the provider
 

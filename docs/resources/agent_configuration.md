@@ -9,7 +9,7 @@ description: |-
 
 One stable Agent Definition and its complete desired Test behavior. Cantora retains immutable Version and Release history when this resource changes or leaves Terraform state.
 
-Plan calls Cantora's side-effect-free preview operation and carries the canonical digest, resource preconditions, proposed actions, stable apply request identity, and source provenance in computed plan metadata. Create and update apply that exact reviewed proposal. A timeout or lost response is retried once with the same identity, and the Management API converges concurrent retries on one Configuration Revision.
+When all configured values are known, Plan calls Cantora's side-effect-free preview operation and carries the canonical digest, resource preconditions, proposed actions, stable apply request identity, and source provenance in computed plan metadata. Create and update apply that exact reviewed proposal. When configured values depend on resources being created in the same operation, capable Terraform clients defer planning until those values resolve; other clients leave plan metadata unknown and the provider performs the same preview immediately before apply. A timeout or lost response is retried once with the same identity, and the Management API converges concurrent retries on one Configuration Revision.
 
 Read follows the Agent Definition's current Test Agent, Version, and Release, so an authorized out-of-band change appears as ordinary Terraform drift.
 

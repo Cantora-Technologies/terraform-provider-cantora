@@ -134,6 +134,41 @@ func TestAccAgentConfigurationRejectsInvalidLocalStructure(t *testing.T) {
 	})
 }
 
+func TestAccAgentConfigurationDefersPreviewUntilDependenciesAreKnown(t *testing.T) {
+	api := newFakeManagementAPI()
+	server := httptest.NewServer(api)
+	t.Cleanup(server.Close)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: providerFactories(server),
+		CheckDestroy:             api.checkRetained(1, 1),
+		Steps: []resource.TestStep{{
+			Config: configurationWithUnknownDependencies(server.URL),
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttr("cantora_agent_configuration.test", "organization_id", testOrganizationID),
+				resource.TestCheckResourceAttr("cantora_agent_configuration.test", "test_release.environment_id", testEnvironmentID),
+				api.checkCalls(1),
+			),
+		}},
+	})
+}
+
+func configurationWithUnknownDependencies(endpoint string) string {
+	return providerConfig(endpoint, "run-1") + `
+resource "terraform_data" "scope" {
+  input = {
+    organization_id = "org_test"
+    project_id      = "proj_test"
+    environment_id  = "env_test"
+  }
+}
+` + strings.NewReplacer(
+		fmt.Sprintf("organization_id = %q", testOrganizationID), "organization_id = terraform_data.scope.output.organization_id",
+		fmt.Sprintf("project_id      = %q", testProjectID), "project_id      = terraform_data.scope.output.project_id",
+		fmt.Sprintf("environment_id = %q", testEnvironmentID), "environment_id = terraform_data.scope.output.environment_id",
+	).Replace(agentConfigurationConfig("Reviewed instructions", "Reviewed activation"))
+}
+
 func TestAccAgentConfigurationDetectsAndCorrectsDrift(t *testing.T) {
 	api := newFakeManagementAPI()
 	server := httptest.NewServer(api)

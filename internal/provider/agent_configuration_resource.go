@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 var _ resource.Resource = &agentConfigurationResource{}
@@ -506,6 +507,23 @@ func (r *agentConfigurationResource) ModifyPlan(
 		response.Diagnostics.AddError("Provider is not configured", "Configure the Cantora provider before planning resources.")
 		return
 	}
+	configUnknown, err := containsUnknown(request.Config.Raw)
+	if err != nil {
+		response.Diagnostics.AddError("Could not inspect Agent Configuration", err.Error())
+		return
+	}
+	if configUnknown {
+		if request.ClientCapabilities.DeferralAllowed {
+			response.Deferred = &resource.Deferred{Reason: resource.DeferredReasonResourceConfigUnknown}
+			return
+		}
+		response.Diagnostics.Append(response.Plan.SetAttribute(
+			ctx,
+			path.Root("plan_metadata"),
+			types.ObjectUnknown(planMetadataAttributeTypes()),
+		)...)
+		return
+	}
 
 	var plan agentConfigurationModel
 	response.Diagnostics.Append(request.Plan.Get(ctx, &plan)...)
@@ -550,6 +568,18 @@ func (r *agentConfigurationResource) ModifyPlan(
 		response.Diagnostics.AddWarning(warning.Code, warning.Message)
 	}
 	response.Diagnostics.Append(response.Plan.Set(ctx, &plan)...)
+}
+
+func containsUnknown(value tftypes.Value) (bool, error) {
+	unknown := false
+	err := tftypes.Walk(value, func(_ *tftypes.AttributePath, current tftypes.Value) (bool, error) {
+		if !current.IsKnown() {
+			unknown = true
+			return false, nil
+		}
+		return true, nil
+	})
+	return unknown, err
 }
 
 func plannedRequestID(
@@ -640,9 +670,29 @@ func (r *agentConfigurationResource) apply(
 	if !ok {
 		return
 	}
-	preview, requestID, source, ok := previewFromPlanMetadata(ctx, state.PlanMetadata, diagnostics)
-	if !ok {
-		return
+	var preview client.Preview
+	var requestID string
+	var source client.Source
+	if state.PlanMetadata.IsNull() || state.PlanMetadata.IsUnknown() {
+		var err error
+		preview, err = r.data.client.PreviewAgentConfiguration(ctx, scopeFromModel(*state), desired)
+		if err != nil {
+			diagnostics.AddError("Could not preview Agent Configuration", err.Error())
+			return
+		}
+		source = r.data.source
+		var requestIDDiagnostics diag.Diagnostics
+		requestID, requestIDDiagnostics = plannedRequestID(scopeFromModel(*state), desired, preview, source)
+		diagnostics.Append(requestIDDiagnostics...)
+		if diagnostics.HasError() {
+			return
+		}
+	} else {
+		var ok bool
+		preview, requestID, source, ok = previewFromPlanMetadata(ctx, state.PlanMetadata, diagnostics)
+		if !ok {
+			return
+		}
 	}
 	applied, err := r.data.client.ApplyAgentConfiguration(
 		ctx,
