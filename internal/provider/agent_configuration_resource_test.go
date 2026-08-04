@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -15,7 +16,9 @@ import (
 	"testing"
 
 	"github.com/Cantora-Technologies/terraform-provider-cantora/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -58,6 +61,50 @@ func TestPlannedRequestIDIsStableAndContentBound(t *testing.T) {
 	}
 	if changed == first {
 		t.Fatal("expected changed apply content to produce a different request identifier")
+	}
+}
+
+func TestApplyMaterializesUnknownPlanMetadataForNonDeferringClients(t *testing.T) {
+	api := newFakeManagementAPI()
+	server := httptest.NewServer(api)
+	t.Cleanup(server.Close)
+	management, err := client.New(server.URL, testAPIKey, "test", server.Client())
+	if err != nil {
+		t.Fatalf("configure client: %v", err)
+	}
+	ctx := context.Background()
+	manifest, manifestDiagnostics := manifestValue(ctx, testManifest("Reviewed instructions"))
+	release, releaseDiagnostics := types.ObjectValueFrom(ctx, testReleaseAttributeTypes(), testReleaseModel{
+		EnvironmentID: types.StringValue(testEnvironmentID),
+		Reason:        types.StringValue("Reviewed activation"),
+	})
+	if manifestDiagnostics.HasError() || releaseDiagnostics.HasError() {
+		t.Fatalf("construct test state: %v %v", manifestDiagnostics, releaseDiagnostics)
+	}
+	state := agentConfigurationModel{
+		OrganizationID:    types.StringValue(testOrganizationID),
+		ProjectID:         types.StringValue(testProjectID),
+		Key:               types.StringValue("aria"),
+		DisplayName:       types.StringValue("Aria"),
+		Manifest:          manifest,
+		TestRelease:       release,
+		PlanMetadata:      types.ObjectUnknown(planMetadataAttributeTypes()),
+		AgentDefinitionID: types.StringNull(),
+	}
+	providerResource := agentConfigurationResource{data: &providerData{
+		client: management,
+		source: client.Source{Repository: "Cantora-Technologies/configuration", Commit: "0123456789abcdef"},
+	}}
+	var diagnostics diag.Diagnostics
+	providerResource.apply(ctx, &state, "create", types.StringNull(), &diagnostics)
+	if diagnostics.HasError() {
+		t.Fatalf("apply unknown plan metadata: %v", diagnostics)
+	}
+	if state.PlanMetadata.IsNull() || state.PlanMetadata.IsUnknown() {
+		t.Fatal("expected apply to materialize plan metadata before writing state")
+	}
+	if _, _, _, ok := previewFromPlanMetadata(ctx, state.PlanMetadata, &diagnostics); !ok || diagnostics.HasError() {
+		t.Fatalf("decode materialized plan metadata: %v", diagnostics)
 	}
 }
 

@@ -687,6 +687,12 @@ func (r *agentConfigurationResource) apply(
 		if diagnostics.HasError() {
 			return
 		}
+		metadata, metadataDiagnostics := planMetadataValue(ctx, preview, source, requestID)
+		diagnostics.Append(metadataDiagnostics...)
+		if diagnostics.HasError() {
+			return
+		}
+		state.PlanMetadata = metadata
 	} else {
 		var ok bool
 		preview, requestID, source, ok = previewFromPlanMetadata(ctx, state.PlanMetadata, diagnostics)
